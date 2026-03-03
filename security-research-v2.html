@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>security-research / Zacker28</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  --bg: #030507;
+  --panel: #080c10;
+  --border: rgba(255,255,255,0.06);
+  --border-bright: rgba(159,239,0,0.3);
+  --green: #9FEF00;
+  --green-glow: rgba(159,239,0,0.12);
+  --text: #dce8f0;
+  --muted: #4a5568;
+  --muted2: #718096;
+  --accent: #0ea5e9;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Space Grotesk', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* noise texture overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.4;
+}
+
+/* NAV */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 48px;
+  height: 56px;
+  background: rgba(3,5,7,0.85);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-brand {
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  color: var(--green);
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-brand::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--green); }
+  50% { opacity: 0.5; box-shadow: 0 0 4px var(--green); }
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-size: 12px;
+  color: var(--muted2);
+  text-decoration: none;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  transition: color .2s;
+}
+
+.nav-links a:hover { color: var(--text); }
+
+.nav-tag {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 4px 12px;
+  border-radius: 2px;
+}
+
+/* HERO */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 48px 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* grid background */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+}
+
+/* green spotlight */
+.hero::after {
+  content: '';
+  position: absolute;
+  top: -200px;
+  right: -200px;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(159,239,0,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-number {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 3px;
+  margin-bottom: 24px;
+}
+
+.hero-title {
+  font-size: clamp(52px, 8vw, 96px);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -3px;
+  color: var(--text);
+  margin-bottom: 40px;
+  max-width: 800px;
+}
+
+.hero-title em {
+  font-style: normal;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(255,255,255,0.25);
+}
+
+.hero-title .highlight {
+  color: var(--green);
+  text-shadow: 0 0 80px rgba(159,239,0,0.25);
+}
+
+.hero-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+}
+
+.hero-desc {
+  font-size: 14px;
+  color: var(--muted2);
+  line-height: 1.8;
+  max-width: 420px;
+  font-weight: 300;
+}
+
+.hero-stats {
+  display: flex;
+  gap: 40px;
+  flex-shrink: 0;
+}
+
+.hstat {
+  text-align: right;
+}
+
+.hstat-val {
+  font-family: 'Space Mono', monospace;
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--green);
+  line-height: 1;
+  display: block;
+}
+
+.hstat-label {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 4px;
+  display: block;
+}
+
+/* DIVIDER */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 48px;
+}
+
+/* SECTION */
+.section {
+  padding: 80px 48px;
+}
+
+.section-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 48px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* MACHINE CARDS GRID */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+
+.card {
+  background: var(--bg);
+  padding: 28px;
+  position: relative;
+  transition: background .2s;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 2px;
+  height: 0;
+  background: var(--green);
+  transition: height .3s ease;
+}
+
+.card:hover { background: var(--panel); }
+.card:hover::before { height: 100%; }
+
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.card-index {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 2px;
+}
+
+.diff-tag {
+  font-size: 10px;
+  letter-spacing: 2px;
+  padding: 3px 10px;
+  border-radius: 2px;
+  font-weight: 500;
+}
+
+.diff-easy { background: rgba(74,222,128,0.08); color: #4ade80; border: 1px solid rgba(74,222,128,0.15); }
+.diff-medium { background: rgba(251,146,60,0.08); color: #fb923c; border: 1px solid rgba(251,146,60,0.15); }
+.diff-hard { background: rgba(248,113,113,0.08); color: #f87171; border: 1px solid rgba(248,113,113,0.15); }
+
+.card-name {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+
+.card-vector {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--muted2);
+  margin-bottom: 20px;
+}
+
+.card-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.meta-chip {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.meta-chip svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0.5;
+}
+
+.card-footer {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-link {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--green);
+  text-decoration: none;
+  letter-spacing: 1px;
+  opacity: 0;
+  transition: opacity .2s;
+}
+
+.card:hover .card-link { opacity: 1; }
+
+.card-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 5px #4ade80;
+}
+
+/* TABLE SECTION */
+.table-section {
+  padding: 0 48px 80px;
+}
+
+.table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.table-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: var(--muted);
+}
+
+.table-count {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.table-wrap {
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+table { width: 100%; border-collapse: collapse; }
+
+thead tr { border-bottom: 1px solid var(--border); }
+
+th {
+  padding: 12px 20px;
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  font-weight: 500;
+  font-family: 'Space Mono', monospace;
+  background: var(--panel);
+}
+
+td {
+  padding: 16px 20px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+tr:last-child td { border-bottom: none; }
+tbody tr { transition: background .1s; }
+tbody tr:hover td { background: var(--panel); }
+
+.t-name { font-weight: 500; color: var(--text); }
+.t-mono { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted2); }
+.t-muted { color: var(--muted); font-size: 11px; }
+.t-cve { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); opacity: 0.8; }
+
+.os-pill {
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 3px 10px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  color: var(--muted2);
+}
+
+.view-link {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--green);
+  text-decoration: none;
+  letter-spacing: 1px;
+  opacity: 0;
+  transition: opacity .2s;
+}
+
+tbody tr:hover .view-link { opacity: 1; }
+
+/* FOOTER */
+footer {
+  padding: 40px 48px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-brand {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.footer-note {
+  font-size: 11px;
+  color: var(--muted);
+  max-width: 400px;
+  text-align: right;
+  line-height: 1.6;
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">Zacker28 / security-research</div>
+  <ul class="nav-links">
+    <li><a href="#">Index</a></li>
+    <li><a href="#">Easy</a></li>
+    <li><a href="#">Medium</a></li>
+    <li><a href="#">Hard</a></li>
+  </ul>
+  <span class="nav-tag">HackTheBox</span>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-number">001 / OVERVIEW</div>
+  <h1 class="hero-title">
+    Security<br/>
+    <em>Research</em><br/>
+    <span class="highlight">& Writeups</span>
+  </h1>
+  <div class="hero-bottom">
+    <p class="hero-desc">
+      Documentazione metodologica del mio percorso su HackTheBox.
+      Enumeration, exploitation e privilege escalation per ogni box completata.
+      Pubblicato post-retirement.
+    </p>
+    <div class="hero-stats">
+      <div class="hstat">
+        <span class="hstat-val">05</span>
+        <span class="hstat-label">Pwned</span>
+      </div>
+      <div class="hstat">
+        <span class="hstat-val">03</span>
+        <span class="hstat-label">Linux</span>
+      </div>
+      <div class="hstat">
+        <span class="hstat-val">02</span>
+        <span class="hstat-label">Windows</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- MACHINE CARDS -->
+<section class="section">
+  <div class="section-label">002 / RECENT</div>
+
+  <div class="cards-grid">
+
+    <div class="card">
+      <div class="card-top">
+        <span class="card-index">01</span>
+        <span class="diff-tag diff-easy">EASY</span>
+      </div>
+      <div class="card-name">Lame</div>
+      <div class="card-vector">CVE-2007-2447 — Samba RCE</div>
+      <div class="card-meta">
+        <span class="meta-chip">Linux</span>
+        <span class="meta-chip">Mar 2017</span>
+        <span class="meta-chip">Pwned Jan 2025</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-status">
+          <div class="status-dot"></div>
+          <span>completed</span>
+        </div>
+        <a href="#" class="card-link">read writeup →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <span class="card-index">02</span>
+        <span class="diff-tag diff-easy">EASY</span>
+      </div>
+      <div class="card-name">Blue</div>
+      <div class="card-vector">CVE-2017-0144 — EternalBlue</div>
+      <div class="card-meta">
+        <span class="meta-chip">Windows</span>
+        <span class="meta-chip">Jul 2017</span>
+        <span class="meta-chip">Pwned Jan 2025</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-status">
+          <div class="status-dot"></div>
+          <span>completed</span>
+        </div>
+        <a href="#" class="card-link">read writeup →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <span class="card-index">03</span>
+        <span class="diff-tag diff-easy">EASY</span>
+      </div>
+      <div class="card-name">Jerry</div>
+      <div class="card-vector">Tomcat default credentials / WAR upload</div>
+      <div class="card-meta">
+        <span class="meta-chip">Windows</span>
+        <span class="meta-chip">Jun 2018</span>
+        <span class="meta-chip">Pwned Feb 2025</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-status">
+          <div class="status-dot"></div>
+          <span>completed</span>
+        </div>
+        <a href="#" class="card-link">read writeup →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <span class="card-index">04</span>
+        <span class="diff-tag diff-medium">MEDIUM</span>
+      </div>
+      <div class="card-name">Forest</div>
+      <div class="card-vector">AS-REP Roasting — DCSync — AD privesc</div>
+      <div class="card-meta">
+        <span class="meta-chip">Windows</span>
+        <span class="meta-chip">Oct 2019</span>
+        <span class="meta-chip">Pwned Feb 2025</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-status">
+          <div class="status-dot"></div>
+          <span>completed</span>
+        </div>
+        <a href="#" class="card-link">read writeup →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <span class="card-index">05</span>
+        <span class="diff-tag diff-medium">MEDIUM</span>
+      </div>
+      <div class="card-name">Horizontall</div>
+      <div class="card-vector">CVE-2019-18818 — Strapi RCE</div>
+      <div class="card-meta">
+        <span class="meta-chip">Linux</span>
+        <span class="meta-chip">Aug 2021</span>
+        <span class="meta-chip">Pwned Mar 2025</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-status">
+          <div class="status-dot"></div>
+          <span>completed</span>
+        </div>
+        <a href="#" class="card-link">read writeup →</a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- FULL TABLE -->
+<section class="table-section">
+  <div class="table-header">
+    <div class="table-label">003 / FULL INDEX</div>
+    <div class="table-count">5 entries</div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>MACHINE</th>
+          <th>OS</th>
+          <th>DIFFICULTY</th>
+          <th>VECTOR / CVE</th>
+          <th>RELEASE</th>
+          <th>PWNED</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="t-muted t-mono">01</td>
+          <td class="t-name">Lame</td>
+          <td><span class="os-pill">Linux</span></td>
+          <td><span class="diff-tag diff-easy">EASY</span></td>
+          <td class="t-cve">CVE-2007-2447</td>
+          <td class="t-muted">Mar 2017</td>
+          <td class="t-muted">Jan 2025</td>
+          <td><a href="#" class="view-link">view →</a></td>
+        </tr>
+        <tr>
+          <td class="t-muted t-mono">02</td>
+          <td class="t-name">Blue</td>
+          <td><span class="os-pill">Windows</span></td>
+          <td><span class="diff-tag diff-easy">EASY</span></td>
+          <td class="t-cve">CVE-2017-0144</td>
+          <td class="t-muted">Jul 2017</td>
+          <td class="t-muted">Jan 2025</td>
+          <td><a href="#" class="view-link">view →</a></td>
+        </tr>
+        <tr>
+          <td class="t-muted t-mono">03</td>
+          <td class="t-name">Jerry</td>
+          <td><span class="os-pill">Windows</span></td>
+          <td><span class="diff-tag diff-easy">EASY</span></td>
+          <td class="t-cve">Default creds / WAR</td>
+          <td class="t-muted">Jun 2018</td>
+          <td class="t-muted">Feb 2025</td>
+          <td><a href="#" class="view-link">view →</a></td>
+        </tr>
+        <tr>
+          <td class="t-muted t-mono">04</td>
+          <td class="t-name">Forest</td>
+          <td><span class="os-pill">Windows</span></td>
+          <td><span class="diff-tag diff-medium">MEDIUM</span></td>
+          <td class="t-cve">AS-REP / DCSync</td>
+          <td class="t-muted">Oct 2019</td>
+          <td class="t-muted">Feb 2025</td>
+          <td><a href="#" class="view-link">view →</a></td>
+        </tr>
+        <tr>
+          <td class="t-muted t-mono">05</td>
+          <td class="t-name">Horizontall</td>
+          <td><span class="os-pill">Linux</span></td>
+          <td><span class="diff-tag diff-medium">MEDIUM</span></td>
+          <td class="t-cve">CVE-2019-18818</td>
+          <td class="t-muted">Aug 2021</td>
+          <td class="t-muted">Mar 2025</td>
+          <td><a href="#" class="view-link">view →</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-brand">Zacker28 — security-research</div>
+  <div class="footer-note">
+    Writeup pubblicati esclusivamente post-retirement nel rispetto delle regole HackTheBox. Contenuto a scopo didattico.
+  </div>
+</footer>
+
+</body>
+</html>
